@@ -22,6 +22,7 @@ import Data.Aeson
 import Data.Aeson.TH
 import Data.Char (toLower)
 
+-- Use TH to create our TodoItem datatype so that persist can store it
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 TodoItem
    priority Int
@@ -30,15 +31,20 @@ TodoItem
      deriving Show
 |]
 
+
+-- Use TH to derive ToJSON/FromJSON instances
+-- The TH definition above creates record accessors called
+-- 'todoItemPriority' and 'todoItemText' so map toLower . drop 8 ensures
+-- that the converted JSON output only has "priority" and "text"
 deriveJSON defaultOptions{fieldLabelModifier = map toLower . drop 8} ''TodoItem
 
+-- Helper function for performing database queries
 runDb query = runSqlite "dev.sqlite3" query
 
 main :: IO ()
 main = do
     runDb $ runMigration migrateAll
     S.scotty 3000 $ do
-        S.get "/" $ S.html "Hello World"
         S.get "/get/:id" $ do
             i <- S.param "id"
             r <- runDb $ selectList [TodoItemPriority ==. i] []
